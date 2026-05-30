@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RealClub · Tela de Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --rc-purple:#8E2E8E;
+    --rc-red:#F03030;
+    --rc-yellow:#F0C400;
+    --rc-green:#00A848;
+    --rc-blue:#4848A0;
+    --rc-cyan:#3E8FB0;
+    --rc-ink:#3C3C42;
+    --rc-gray:#6B6B72;
+    --rc-mute:#9A9AA2;
+    --rc-line:#E7E7EC;
+    --rc-bg:#F4F5F8;
+    --rc-field:#F7F8FA;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Manrope',system-ui,sans-serif;background:#EDEEF2;-webkit-font-smoothing:antialiased;}
+  #root{width:100%;min-height:100vh;}
+
+  .fullscreen-login{position:fixed;inset:0;}
+  .fullscreen-login .br{border-radius:0;}
+
+  /* ---------- browser chrome ---------- */
+  .br{position:absolute;inset:0;background:#fff;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;}
+  .br-bar{height:44px;flex:0 0 44px;background:#EDEDF1;border-bottom:1px solid #E2E2E8;display:flex;align-items:center;gap:8px;padding:0 16px;}
+  .br-dot{width:11px;height:11px;border-radius:50%;}
+  .br-url{margin-left:14px;height:24px;flex:1;max-width:340px;background:#fff;border-radius:7px;display:flex;align-items:center;gap:7px;padding:0 11px;font-size:12px;color:var(--rc-mute);font-weight:500;}
+  .br-body{flex:1;position:relative;overflow:hidden;}
+
+  /* ---------- shared form atoms ---------- */
+  .rc-h1{font-size:26px;font-weight:800;color:var(--rc-ink);margin:0;letter-spacing:-.02em;}
+  .rc-sub{font-size:14.5px;color:var(--rc-gray);margin:7px 0 0;line-height:1.5;}
+  .rc-label{display:block;font-size:12.5px;font-weight:600;color:var(--rc-ink);margin:0 0 7px;}
+  .rc-field{position:relative;display:flex;align-items:center;}
+  .rc-input{width:100%;height:46px;border:1.5px solid var(--rc-line);background:var(--rc-field);border-radius:11px;
+    padding:0 14px;font-family:inherit;font-size:14.5px;color:var(--rc-ink);font-weight:500;transition:border-color .15s,background .15s,box-shadow .15s;outline:none;}
+  .rc-input::placeholder{color:var(--rc-mute);font-weight:500;}
+  .rc-input:focus{background:#fff;border-color:var(--ac);box-shadow:0 0 0 3.5px var(--ac-soft);}
+  .rc-input.has-icon{padding-left:42px;}
+  .rc-input.has-eye{padding-right:46px;}
+  .rc-ic{position:absolute;left:14px;color:var(--rc-mute);display:flex;pointer-events:none;}
+  .rc-eye{position:absolute;right:8px;width:34px;height:34px;border:none;background:transparent;color:var(--rc-mute);
+    cursor:pointer;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;}
+  .rc-eye:hover{color:var(--rc-ink);background:#0000000a;}
+  .rc-err{color:var(--rc-red);font-size:12px;font-weight:600;margin:7px 0 0;display:flex;align-items:center;gap:5px;}
+  .rc-field-wrap{margin-bottom:16px;}
+  .rc-input.invalid{border-color:var(--rc-red);background:#FFF6F6;}
+  .rc-input.invalid:focus{box-shadow:0 0 0 3.5px #F0303022;}
+
+  .rc-row{display:flex;align-items:center;justify-content:space-between;margin:2px 0 22px;}
+  .rc-check{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none;}
+  .rc-box{width:19px;height:19px;border-radius:6px;border:1.5px solid #CFCFD6;background:#fff;display:flex;align-items:center;justify-content:center;transition:.15s;flex:0 0 auto;}
+  .rc-box.on{background:var(--ac);border-color:var(--ac);}
+  .rc-check span{font-size:13px;color:var(--rc-gray);font-weight:600;}
+  .rc-link{font-size:13px;font-weight:700;color:var(--ac);text-decoration:none;cursor:pointer;}
+  .rc-link:hover{text-decoration:underline;}
+
+  .rc-btn{width:100%;height:48px;border:none;border-radius:11px;background:var(--ac);color:#fff;font-family:inherit;
+    font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;
+    transition:filter .15s,transform .06s,box-shadow .2s;box-shadow:0 8px 20px -8px var(--ac-glow);}
+  .rc-btn:hover{filter:brightness(1.06);}
+  .rc-btn:active{transform:translateY(1px);}
+  .rc-btn:disabled{cursor:default;opacity:.92;}
+
+  .rc-foot{font-size:13px;color:var(--rc-gray);text-align:center;margin:22px 0 0;font-weight:500;}
+  .rc-foot a{color:var(--ac);font-weight:700;text-decoration:none;}
+  .rc-foot a:hover{text-decoration:underline;}
+
+  .rc-spin{width:18px;height:18px;border:2.5px solid #ffffff66;border-top-color:#fff;border-radius:50%;animation:rcspin .7s linear infinite;}
+  @keyframes rcspin{to{transform:rotate(360deg);}}
+
+  .rc-demo{margin-top:16px;font-size:11.5px;color:var(--rc-mute);text-align:center;font-weight:500;line-height:1.5;}
+  .rc-pill{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 11px;border-radius:99px;
+    background:var(--ac-soft);color:var(--ac);font-size:11.5px;font-weight:700;letter-spacing:.01em;}
+
+  /* success */
+  .rc-done{display:flex;flex-direction:column;align-items:center;text-align:center;animation:rcfade .4s ease;}
+  @keyframes rcfade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .rc-checkc{width:64px;height:64px;border-radius:50%;background:var(--ac-soft);display:flex;align-items:center;justify-content:center;margin-bottom:18px;}
+  .rc-checkc svg{animation:rcpop .45s cubic-bezier(.2,1.4,.4,1);}
+  @keyframes rcpop{from{transform:scale(.3);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+  /* ---------- Variant A : centered card ---------- */
+  .va-stage{position:absolute;inset:0;background:
+      radial-gradient(110% 80% at 50% -10%, #fff 0%, var(--rc-bg) 60%);
+      display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .va-blob{position:absolute;border-radius:50%;filter:blur(2px);opacity:.16;}
+  .va-card{position:relative;width:430px;background:#fff;border-radius:22px;padding:40px 42px 34px;
+    box-shadow:0 2px 4px #2a2a350a,0 30px 60px -28px #2a2a3540;border:1px solid #fff;}
+  .va-accent{position:absolute;top:0;left:28px;right:28px;height:4px;border-radius:0 0 4px 4px;
+    background:linear-gradient(90deg,var(--rc-purple),var(--rc-red),var(--rc-yellow),var(--rc-green),var(--rc-blue));}
+  .va-logo{height:38px;display:block;margin:6px 0 26px;}
+
+  /* ---------- Variant B : split screen ---------- */
+  .vb-stage{position:absolute;inset:0;display:flex;background:#fff;overflow:hidden;}
+  .vb-left{flex:0 0 46%;position:relative;overflow:hidden;
+    background:linear-gradient(155deg,#FBF7FB 0%,#F4F6FC 52%,#F1FAF4 100%);display:flex;flex-direction:column;justify-content:space-between;padding:48px 46px;}
+  .vb-leftlogo{height:34px;align-self:flex-start;}
+  .vb-blob{position:absolute;border-radius:50%;opacity:.9;}
+  .vb-headline{position:relative;font-size:32px;font-weight:800;color:var(--rc-ink);line-height:1.18;letter-spacing:-.02em;margin:0;}
+  .vb-headline b{color:var(--rc-purple);}
+  .vb-feat{position:relative;display:flex;flex-direction:column;gap:15px;margin-top:24px;}
+  .vb-fi{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--rc-gray);font-weight:600;}
+  .vb-fdot{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .vb-card-pop{position:relative;z-index:2;background:#fff;border-radius:16px;padding:18px;box-shadow:0 20px 50px -20px #2a2a3540;border:1px solid #00000008;}
+  .vb-right{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;}
+  .vb-form{width:380px;}
+  .vb-cluster{position:relative;align-self:flex-start;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="login-app.jsx"></script>
+</body>
+</html>
