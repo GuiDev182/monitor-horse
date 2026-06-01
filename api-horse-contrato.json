@@ -1,0 +1,95 @@
+{
+  "contrato": "API Horse — Health Check",
+  "versao_contrato": "1.0",
+  "descricao": "Endpoints que a API Horse (serviço do Windows) deve expor para o painel RealClub determinar se o serviço está ativo.",
+  "base_url_exemplo": "https://api.SEU-CLUBE.com.br",
+  "observacao_geral": "O painel só precisa do GET /health para funcionar. Os endpoints /health/ready e /health/service são opcionais e enriquecem o diagnóstico (ative-os quando possível).",
+
+  "endpoints": [
+    {
+      "nome": "Liveness",
+      "metodo": "GET",
+      "caminho": "/health",
+      "obrigatorio": true,
+      "descricao": "Prova que o serviço está de pé e respondendo. Deve ser rápido e não depender de banco/fila.",
+      "regra_status": "HTTP 200 + status='ok'  =>  Serviço ATIVO. Timeout, conexão recusada ou HTTP 5xx  =>  Serviço PARADO.",
+      "resposta_200_exemplo": {
+        "status": "ok",
+        "versao": "v2.4.1",
+        "ambiente": "producao",
+        "timestamp": "2026-05-31T12:00:00.000Z",
+        "uptime_seg": 1843200
+      },
+      "resposta_503_exemplo": {
+        "status": "down",
+        "versao": "v2.4.1",
+        "ambiente": "producao",
+        "timestamp": "2026-05-31T12:00:00.000Z",
+        "erro": "Falha ao inicializar o serviço"
+      },
+      "campos": {
+        "status": "string · obrigatório · 'ok' quando saudável",
+        "versao": "string · opcional · versão da API Horse em execução",
+        "ambiente": "string · opcional · 'producao' | 'homologacao'",
+        "timestamp": "string ISO-8601 · opcional",
+        "uptime_seg": "number · opcional · segundos desde que o serviço subiu"
+      }
+    },
+
+    {
+      "nome": "Readiness",
+      "metodo": "GET",
+      "caminho": "/health/ready",
+      "obrigatorio": false,
+      "descricao": "Verifica se o serviço consegue trabalhar de fato — testa as dependências (banco, fila, disco). Distingue 'caiu' de 'subiu mas sem banco'.",
+      "regra_status": "HTTP 200 => PRONTO. HTTP 503 => alguma dependência crítica fora.",
+      "resposta_200_exemplo": {
+        "status": "ok",
+        "dependencias": {
+          "banco_de_dados": "ok",
+          "fila": "ok",
+          "disco_livre_mb": 24800
+        }
+      },
+      "resposta_503_exemplo": {
+        "status": "degraded",
+        "dependencias": {
+          "banco_de_dados": "erro",
+          "fila": "ok",
+          "disco_livre_mb": 24800
+        }
+      },
+      "campos": {
+        "status": "string · 'ok' | 'degraded'",
+        "dependencias": "objeto · cada chave é uma dependência; valor 'ok'/'erro' ou número (ex.: disco_livre_mb)"
+      }
+    },
+
+    {
+      "nome": "Estado do Serviço Windows",
+      "metodo": "GET",
+      "caminho": "/health/service",
+      "obrigatorio": false,
+      "descricao": "Reporta o estado do serviço no Service Control Manager (SCM) do Windows. Ideal expor via um agente/watchdog separado, que continua respondendo mesmo se a API Horse principal cair.",
+      "regra_status": "estado='Running' => serviço ATIVO. 'Stopped' | 'StartPending' | 'StopPending' | 'Paused' => não está operando normalmente.",
+      "resposta_200_exemplo": {
+        "servico_windows": "ApiHorse",
+        "estado": "Running",
+        "iniciado_em": "2026-05-29T03:11:00.000Z",
+        "modo_inicio": "Automatic"
+      },
+      "campos": {
+        "servico_windows": "string · nome do serviço no Windows",
+        "estado": "string · Running | Stopped | StartPending | StopPending | Paused",
+        "iniciado_em": "string ISO-8601 · opcional",
+        "modo_inicio": "string · Automatic | Manual | Disabled"
+      }
+    }
+  ],
+
+  "resumo_interpretacao": {
+    "servico_ativo_quando": "GET /health responde 200 com status='ok'",
+    "servico_parado_quando": "GET /health dá timeout, conexão recusada ou HTTP >= 500",
+    "diagnostico_extra": "GET /health/ready mostra qual dependência caiu; GET /health/service mostra se o Windows Service está Running"
+  }
+}

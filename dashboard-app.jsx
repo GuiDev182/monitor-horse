@@ -18,6 +18,8 @@ const I = {
   db: (p)=>(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/></svg>),
   link: (p)=>(<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>),
   plus: (p)=>(<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 5v14M5 12h14"/></svg>),
+  chevron: (p)=>(<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="m6 9 6 6 6-6"/></svg>),
+  win: (p)=>(<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" {...p}><path d="M3 5.5 10.5 4.4v7.1H3V5.5Zm0 13L10.5 19.6v-7H3v6Zm8.5 1.2L21 21V12.5h-9.5v7.2Zm0-15.4V11.5H21V3l-9.5 1.3Z"/></svg>),
   flask: (p)=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 3h6M10 3v6.5L5.2 17a2 2 0 0 0 1.7 3h10.2a2 2 0 0 0 1.7-3L14 9.5V3"/><path d="M7.5 14h9"/></svg>),
 };
 
@@ -97,6 +99,9 @@ function ProdCard({ club, idx, health, checking, onCheck, onDelete }) {
   else sub = `Sem resposta · ${health.error || "falha de conexão"}`;
 
   const amb = (health && health.ambiente) || club.ambiente || "producao";
+  const [open, setOpen] = useState(false);
+  const ready = health && health.readiness;
+  const svc = health && health.service;
 
   return (
     <div className="card">
@@ -127,9 +132,93 @@ function ProdCard({ club, idx, health, checking, onCheck, onDelete }) {
         </div>
         <StatusPill state={state} onClick={checking ? null : onCheck}/>
       </div>
+
+      {/* 3 verificações: liveness · readiness · serviço Windows */}
+      <div className="checks">
+        <CheckChip label="Liveness" state={checking ? "wait" : (!health ? "wait" : (health.ok ? "ok" : "bad"))}/>
+        <CheckChip label="Readiness" state={checking || !health ? "wait" : (!ready || !ready.available ? "na" : (ready.ok ? "ok" : "bad"))}/>
+        <CheckChip label="Serviço Win" state={checking || !health ? "wait" : (!svc || !svc.available ? "na" : (svc.running ? "ok" : "bad"))}/>
+      </div>
+
+      <button className="card-exp" onClick={() => setOpen((o) => !o)}>
+        <span className={"chev" + (open ? " up" : "")}>{I.chevron()}</span>
+        {open ? "Ocultar detalhes" : "Ver detalhes do health-check"}
+      </button>
+
+      {open && (
+        <div className="detail">
+          {/* liveness */}
+          <div className="d-row">
+            <div className="d-k">Liveness <span className="d-ep">GET /health</span></div>
+            <div className="d-v">{!health ? "—" : health.ok ? `${health.http} OK · ${health.ms} ms` : (health.http ? `HTTP ${health.http}` : "sem resposta")}</div>
+          </div>
+          {health && health.versao && <div className="d-row"><div className="d-k">Versão</div><div className="d-v">{health.versao}</div></div>}
+          {health && typeof health.uptime_seg !== "undefined" && health.uptime_seg != null && (
+            <div className="d-row"><div className="d-k">Uptime</div><div className="d-v">{fmtUptime(health.uptime_seg)}</div></div>
+          )}
+
+          {/* readiness */}
+          <div className="d-sep"/>
+          <div className="d-row">
+            <div className="d-k">Readiness <span className="d-ep">GET /health/ready</span></div>
+            <div className="d-v">{!ready || !ready.available ? <span className="na">não exposto</span> : (ready.ok ? "pronto" : "indisponível")}</div>
+          </div>
+          {ready && ready.available && ready.deps && Object.keys(ready.deps).map((k) => {
+            const val = ready.deps[k];
+            const okDep = /ok|ativo|up|true/i.test(String(val));
+            const isNum = typeof val === "number";
+            return (
+              <div className="d-row dep" key={k}>
+                <div className="d-k">{depLabel(k)}</div>
+                <div className="d-v">{isNum ? val : <span className={"dep-b " + (okDep ? "ok" : "bad")}>{okDep ? I.check() : I.alert()}{String(val)}</span>}</div>
+              </div>
+            );
+          })}
+          {ready && ready.fromLive && <div className="d-note">dependências lidas do /health (sem endpoint /ready dedicado)</div>}
+
+          {/* serviço windows */}
+          <div className="d-sep"/>
+          <div className="d-row">
+            <div className="d-k">{I.win()} Serviço Windows <span className="d-ep">GET /health/service</span></div>
+            <div className="d-v">{!svc || !svc.available ? <span className="na">não exposto</span> : (
+              <span className={"dep-b " + (svc.running ? "ok" : "bad")}>{svc.running ? I.check() : I.alert()}{svc.estado}</span>
+            )}</div>
+          </div>
+          {svc && svc.available && (
+            <>
+              <div className="d-row dep"><div className="d-k">Nome</div><div className="d-v">{svc.nome}</div></div>
+              {svc.iniciado_em && <div className="d-row dep"><div className="d-k">Iniciado em</div><div className="d-v">{fmtDate(svc.iniciado_em)}</div></div>}
+              {svc.modo_inicio && <div className="d-row dep"><div className="d-k">Modo de início</div><div className="d-v">{svc.modo_inicio}</div></div>}
+            </>
+          )}
+        </div>
+      )}
+
       <div className="url-line">{I.link()}<a href={club.url_health} target="_blank" rel="noreferrer">{club.url_health}</a></div>
     </div>
   );
+}
+
+/* chip compacto de verificação */
+function CheckChip({ label, state }) {
+  // state: ok | bad | na | wait
+  return <span className={"chk-chip " + state}><span className="chk-led"/>{label}</span>;
+}
+
+function fmtUptime(s) {
+  s = Number(s) || 0;
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${m}min`;
+  return `${m}min`;
+}
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); }
+  catch (e) { return iso; }
+}
+function depLabel(k) {
+  const m = { banco_de_dados: "Banco de dados", fila: "Fila", disco_livre_mb: "Disco livre (MB)", cache: "Cache", redis: "Redis" };
+  return m[k] || k.replace(/_/g, " ");
 }
 
 /* ---------------- app ---------------- */
@@ -148,10 +237,10 @@ function Dashboard() {
 
   const isProd = env === "prod";
 
-  /* health-check real de um clube */
+  /* health-check real de um clube (liveness + readiness + serviço Windows) */
   const checkOne = useCallback(async (club) => {
     setChecking((s) => ({ ...s, [club.id]: true }));
-    const res = await RC.checkHealth(club.url_health);
+    const res = await RC.checkDeep(club.url_health);
     setHealth((h) => ({ ...h, [club.id]: res }));
     setChecking((s) => ({ ...s, [club.id]: false }));
     return res;

@@ -82,6 +82,7 @@
           ms,
           versao: body && body.versao,
           ambiente: body && body.ambiente,
+          uptime_seg: body && body.uptime_seg,
           deps: body && body.dependencias,
           at: new Date().toISOString(),
         };
@@ -89,6 +90,68 @@
         const ms = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - t0);
         return { ok: false, http: 0, ms, error: String(err && err.message || err), at: new Date().toISOString() };
       }
+    },
+
+    /* deriva os endpoints irmãos a partir do url_health base
+       .../health  ->  .../health/ready  e  .../health/service */
+    siblingUrls(url) {
+      const base = String(url).replace(/\/+$/, "");
+      return { ready: base + "/ready", service: base + "/service" };
+    },
+
+    /* GET genérico que devolve {ok, http, ms, body, error} sem lançar */
+    async probe(url) {
+      const t0 = (performance && performance.now) ? performance.now() : Date.now();
+      try {
+        const res = await fetch(url, { method: "GET", cache: "no-store" });
+        const ms = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - t0);
+        let body = null; try { body = await res.json(); } catch (e) {}
+        return { ok: res.ok, http: res.status, ms, body };
+      } catch (err) {
+        const ms = Math.round(((performance && performance.now) ? performance.now() : Date.now()) - t0);
+        return { ok: false, http: 0, ms, error: String(err && err.message || err) };
+      }
+    },
+
+    /* verificação profunda: liveness + readiness + estado do serviço Windows.
+       readiness/service são opcionais — se o endpoint não existir, marca "indisponível". */
+    async checkDeep(url) {
+      const sib = this.siblingUrls(url);
+      const [live, ready, svc] = await Promise.all([
+        this.checkHealth(url),
+        this.probe(sib.ready),
+        this.probe(sib.service),
+      ]);
+
+      // readiness
+      let readiness = null;
+      if (ready.http) {
+        const deps = (ready.body && ready.body.dependencias) || (live.deps) || null;
+        readiness = { available: true, ok: ready.http >= 200 && ready.http < 300, http: ready.http, deps };
+      } else if (live.deps) {
+        // fallback: usa dependências que vieram no /health
+        readiness = { available: true, ok: live.ok, http: live.http, deps: live.deps, fromLive: true };
+      } else {
+        readiness = { available: false };
+      }
+
+      // estado do serviço Windows
+      let service = null;
+      if (svc.http && svc.body) {
+        const estado = svc.body.estado || svc.body.state || svc.body.status;
+        service = {
+          available: true,
+          running: /running|ativo|ok/i.test(String(estado || "")),
+          estado: estado || "Desconhecido",
+          nome: svc.body.servico_windows || svc.body.service || "ApiHorse",
+          iniciado_em: svc.body.iniciado_em || svc.body.started_at || null,
+          modo_inicio: svc.body.modo_inicio || svc.body.start_mode || null,
+        };
+      } else {
+        service = { available: false };
+      }
+
+      return Object.assign({}, live, { readiness, service });
     },
   };
 
